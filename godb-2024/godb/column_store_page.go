@@ -15,7 +15,7 @@ type columnStorePage struct {
 	numSlots     int32
 	numUsedSlots int32
 	desc         *TupleDesc
-	colFile      *ColumnFile
+	colFile      *columnStoreFile
 	tuples       [](*Tuple)
 }
 
@@ -23,9 +23,9 @@ func (c *columnStorePage) getNumSlots() int {
 	return int(c.numSlots)
 }
 
-// creates a new columnStorePage for a specific column in a ColumnFile
+// creates a new columnStorePage for a specific column in a columnStoreFile
 // It calculates the number of slots based on the column's type and initializes the page
-func newColumnPage(desc *TupleDesc, colNumber int, pageNumber int, f *ColumnFile) *columnStorePage {
+func newColumnPage(desc *TupleDesc, colNumber int, pageNumber int, f *columnStoreFile) *columnStorePage {
 	field := desc.Fields[colNumber]
 	var tupleSize int32
 	switch field.Ftype {

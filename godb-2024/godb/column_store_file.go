@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-type ColumnFile struct {
+type columnStoreFile struct {
 	filenames       map[int]string
 	td              TupleDesc
 	bufPool         *BufferPool
@@ -21,13 +21,13 @@ type ColumnFile struct {
 	CFLock          sync.Mutex
 }
 
-// initializes a new ColumnFile
-func NewColumnFile(fromFiles map[int]string, td TupleDesc, bp *BufferPool) (*ColumnFile, error) {
+// initializes a new columnStoreFile
+func NewcolumnStoreFile(fromFiles map[int]string, td TupleDesc, bp *BufferPool) (*columnStoreFile, error) {
 	if len(td.Fields) != len(fromFiles) {
 		return nil, errors.New("number of files and columns do not match")
 	}
 
-	colFile := &ColumnFile{
+	colFile := &columnStoreFile{
 		td:              td,
 		filenames:       fromFiles,
 		bufPool:         bp,
@@ -55,12 +55,12 @@ func NewColumnFile(fromFiles map[int]string, td TupleDesc, bp *BufferPool) (*Col
 	return colFile, nil
 }
 
-func (f *ColumnFile) NumPages() int {
+func (f *columnStoreFile) NumPages() int {
 	return f.pagesEachColumn * f.colAmount
 }
 
 // largely the same as LoadFromCSV from heap_file.go
-func (f *ColumnFile) LoadFromCSV(file *os.File, hasHeader bool, sep string, skipLastField bool) error {
+func (f *columnStoreFile) LoadFromCSV(file *os.File, hasHeader bool, sep string, skipLastField bool) error {
 	scanner := bufio.NewScanner(file)
 	cnt := 0
 	for scanner.Scan() {
@@ -110,7 +110,7 @@ func (f *ColumnFile) LoadFromCSV(file *os.File, hasHeader bool, sep string, skip
 	return nil
 }
 
-func (f *ColumnFile) readPage(pageNumber int) (Page, error) {
+func (f *columnStoreFile) readPage(pageNumber int) (Page, error) {
 	column := pageNumber % f.colAmount
 	filename, ok := f.filenames[column]
 	if !ok {
@@ -143,7 +143,7 @@ func (f *ColumnFile) readPage(pageNumber int) (Page, error) {
 }
 
 // insert tuple
-func (f *ColumnFile) insertTuple(t *Tuple, tid TransactionID) error {
+func (f *columnStoreFile) insertTuple(t *Tuple, tid TransactionID) error {
 	j := 0
 
 	// try inserting the tuple into existing pages
@@ -162,7 +162,7 @@ func (f *ColumnFile) insertTuple(t *Tuple, tid TransactionID) error {
 }
 
 // helper function to attempt insertion into an existing page
-func (f *ColumnFile) tryInsertIntoPage(t *Tuple, tid TransactionID, pageNumber int) (bool, error) {
+func (f *columnStoreFile) tryInsertIntoPage(t *Tuple, tid TransactionID, pageNumber int) (bool, error) {
 	page, err := f.bufPool.GetPage(f, pageNumber, tid, WritePerm)
 	if err != nil {
 		return false, err
@@ -185,7 +185,7 @@ func (f *ColumnFile) tryInsertIntoPage(t *Tuple, tid TransactionID, pageNumber i
 }
 
 // helper to insert into a specific column page
-func (f *ColumnFile) insertIntoColumnPage(t *Tuple, tid TransactionID, pageNumber int) error {
+func (f *columnStoreFile) insertIntoColumnPage(t *Tuple, tid TransactionID, pageNumber int) error {
 	page, err := f.bufPool.GetPage(f, pageNumber, tid, WritePerm)
 	if err != nil {
 		return err
@@ -197,7 +197,7 @@ func (f *ColumnFile) insertIntoColumnPage(t *Tuple, tid TransactionID, pageNumbe
 }
 
 // helper to create new pages and insert the tuple
-func (f *ColumnFile) createNewPagesAndInsert(t *Tuple, tid TransactionID, colIdx int) error {
+func (f *columnStoreFile) createNewPagesAndInsert(t *Tuple, tid TransactionID, colIdx int) error {
 	f.CFLock.Lock()
 	defer f.CFLock.Unlock()
 
@@ -230,10 +230,10 @@ func (f *ColumnFile) createNewPagesAndInsert(t *Tuple, tid TransactionID, colIdx
 	return nil
 }
 
-// deleteTuple removes a tuple from all column pages in the ColumnFile.
+// deleteTuple removes a tuple from all column pages in the columnStoreFile.
 // It uses the tuple's RecordID (rid) to determine the starting page number
 // and iterates over all columns to delete the tuple
-func (f *ColumnFile) deleteTuple(t *Tuple, tid TransactionID) error {
+func (f *columnStoreFile) deleteTuple(t *Tuple, tid TransactionID) error {
 	rid := t.Rid.(RecordID)
 	for i := 0; i < f.colAmount; i++ {
 		pageNumber := rid.pageNo + i
@@ -246,7 +246,7 @@ func (f *ColumnFile) deleteTuple(t *Tuple, tid TransactionID) error {
 }
 
 // helper function for deleteTuple; removes a tuple from a specific column page by its slot number
-func (f *ColumnFile) deleteFromColumnPage(pageNumber int, slotNo int, tid TransactionID) error {
+func (f *columnStoreFile) deleteFromColumnPage(pageNumber int, slotNo int, tid TransactionID) error {
 	page, err := f.bufPool.GetPage(f, pageNumber, tid, WritePerm)
 	if err != nil {
 		return err
@@ -256,7 +256,7 @@ func (f *ColumnFile) deleteFromColumnPage(pageNumber int, slotNo int, tid Transa
 	return cp.deleteTuple(slotNo)
 }
 
-func (f *ColumnFile) flushPage(page Page) error {
+func (f *columnStoreFile) flushPage(page Page) error {
 	// convert the page to a columnStorePage and serialize it to a buffer
 	cp := page.(*columnStorePage)
 	buf, err := cp.toBuffer()
@@ -299,11 +299,11 @@ func writeBufferToFile(filename string, offset int64, data []byte) error {
 	return nil
 }
 
-func (f *ColumnFile) Descriptor() *TupleDesc {
+func (f *columnStoreFile) Descriptor() *TupleDesc {
 	return &f.td
 }
 
-func (f *ColumnFile) Iterator(tid TransactionID) (func() (*Tuple, error), error) {
+func (f *columnStoreFile) Iterator(tid TransactionID) (func() (*Tuple, error), error) {
 	columns := make([]int, f.colAmount)
 	for i := 0; i < f.colAmount; i++ {
 		columns[i] = i
@@ -311,7 +311,7 @@ func (f *ColumnFile) Iterator(tid TransactionID) (func() (*Tuple, error), error)
 	return f.IteratorCol(columns, tid)
 }
 
-func (f *ColumnFile) IteratorCol(columns []int, tid TransactionID) (func() (*Tuple, error), error) {
+func (f *columnStoreFile) IteratorCol(columns []int, tid TransactionID) (func() (*Tuple, error), error) {
 	pageInColumn := 0
 	pages := make([]*columnStorePage, len(columns))
 	iters := make([]func() (*Tuple, error), len(columns))
@@ -350,7 +350,7 @@ func (f *ColumnFile) IteratorCol(columns []int, tid TransactionID) (func() (*Tup
 }
 
 // helper, initializes pages and iterators for the specified columns
-func (f *ColumnFile) initColumnPagesAndIterators(columns []int, pages []*columnStorePage, iters []func() (*Tuple, error), pageInColumn int, tid TransactionID) error {
+func (f *columnStoreFile) initColumnPagesAndIterators(columns []int, pages []*columnStorePage, iters []func() (*Tuple, error), pageInColumn int, tid TransactionID) error {
 	for index, col := range columns {
 		pageNumber := pageInColumn*f.colAmount + col
 		p, err := f.bufPool.GetPage(f, pageNumber, tid, ReadPerm)
@@ -369,7 +369,7 @@ type columnHash struct {
 	pageNumber int
 }
 
-func (f *ColumnFile) pageKey(pgNo int) any {
+func (f *columnStoreFile) pageKey(pgNo int) any {
 	filename, ok := f.filenames[pgNo%f.colAmount]
 	if !ok {
 		panic(fmt.Sprintf("no file for column %d", pgNo%f.colAmount))

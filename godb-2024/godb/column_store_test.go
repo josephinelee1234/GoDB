@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func makeColumnFileTestVars() (TupleDesc, Tuple, Tuple, *ColumnFile, *BufferPool, TransactionID) {
+func makecolumnStoreFileTestVars() (TupleDesc, Tuple, Tuple, *columnStoreFile, *BufferPool, TransactionID) {
 	os.Remove("coltest_name.dat")
 	os.Remove("coltest_age.dat")
 	var td = TupleDesc{Fields: []FieldType{
@@ -32,7 +32,7 @@ func makeColumnFileTestVars() (TupleDesc, Tuple, Tuple, *ColumnFile, *BufferPool
 
 	bp, err := NewBufferPool(25)
 
-	cf, err := NewColumnFile(map[int]string{0: "coltest_name.dat", 1: "coltest_age.dat"}, td, bp)
+	cf, err := NewcolumnStoreFile(map[int]string{0: "coltest_name.dat", 1: "coltest_age.dat"}, td, bp)
 	if err != nil {
 		errors.New("error making test variables")
 	}
@@ -44,8 +44,8 @@ func makeColumnFileTestVars() (TupleDesc, Tuple, Tuple, *ColumnFile, *BufferPool
 
 }
 
-func TestColumnFileCreateAndInsert(t *testing.T) {
-	_, t1, t2, cf, _, tid := makeColumnFileTestVars()
+func TestcolumnStoreFileCreateAndInsert(t *testing.T) {
+	_, t1, t2, cf, _, tid := makecolumnStoreFileTestVars()
 	err := cf.insertTuple(&t1, tid)
 	cf.insertTuple(&t2, tid)
 	iter, err := cf.Iterator(tid)
@@ -61,12 +61,12 @@ func TestColumnFileCreateAndInsert(t *testing.T) {
 		i = i + 1
 	}
 	if i != 2 {
-		t.Errorf("ColumnFile iterator expected 2 tuples, got %d", i)
+		t.Errorf("columnStoreFile iterator expected 2 tuples, got %d", i)
 	}
 }
 
-func TestColumnFileDelete(t *testing.T) {
-	_, t1, t2, cf, _, tid := makeColumnFileTestVars()
+func TestcolumnStoreFileDelete(t *testing.T) {
+	_, t1, t2, cf, _, tid := makecolumnStoreFileTestVars()
 	err := cf.insertTuple(&t1, tid)
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -92,7 +92,7 @@ func TestColumnFileDelete(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 	if t3 == nil {
-		t.Fatalf("ColumnFile iterator expected 1 tuple")
+		t.Fatalf("columnStoreFile iterator expected 1 tuple")
 	}
 
 	err = cf.deleteTuple(&t2, tid)
@@ -111,12 +111,12 @@ func TestColumnFileDelete(t *testing.T) {
 	}
 
 	if t3 != nil {
-		t.Fatalf("ColumnFile iterator expected 0 tuple")
+		t.Fatalf("columnStoreFile iterator expected 0 tuple")
 	}
 }
 
-func TestColumnFilePageKey(t *testing.T) {
-	td, t1, _, cf, bp, tid := makeColumnFileTestVars()
+func TestcolumnStoreFilePageKey(t *testing.T) {
+	td, t1, _, cf, bp, tid := makecolumnStoreFileTestVars()
 
 	os.Remove("coltest_age.dat")
 	cf2, err := NewHeapFile(TestingFile2, &td, bp)
@@ -155,8 +155,8 @@ func TestColumnFilePageKey(t *testing.T) {
 	}
 }
 
-func TestColumnFileSize(t *testing.T) {
-	_, t1, _, cf, bp, _ := makeColumnFileTestVars()
+func TestcolumnStoreFileSize(t *testing.T) {
+	_, t1, _, cf, bp, _ := makecolumnStoreFileTestVars()
 
 	tid := NewTID()
 	bp.BeginTransaction(tid)
@@ -175,8 +175,8 @@ func TestColumnFileSize(t *testing.T) {
 	}
 }
 
-func TestColumnFileDirtyBit(t *testing.T) {
-	_, t1, _, cf, bp, _ := makeColumnFileTestVars()
+func TestcolumnStoreFileDirtyBit(t *testing.T) {
+	_, t1, _, cf, bp, _ := makecolumnStoreFileTestVars()
 
 	tid := NewTID()
 	bp.BeginTransaction(tid)
@@ -191,7 +191,7 @@ func TestColumnFileDirtyBit(t *testing.T) {
 func TestColumnPageInsert(t *testing.T) {
 	var expectedSlots_name = ((PageSize - 8) / (StringLength))
 	var expectedSlots_age = ((PageSize - 8) / 8)
-	td, t1, t2, cf, _, _ := makeColumnFileTestVars()
+	td, t1, t2, cf, _, _ := makecolumnStoreFileTestVars()
 	page_name := newColumnPage(&td, 0, 0, cf)
 	page_age := newColumnPage(&td, 1, 0, cf)
 
@@ -221,7 +221,7 @@ func TestColumnPageInsert(t *testing.T) {
 }
 
 func TestColumnPageDelete(t *testing.T) {
-	td, t1, t2, cf, _, _ := makeColumnFileTestVars()
+	td, t1, t2, cf, _, _ := makecolumnStoreFileTestVars()
 	pgName := newColumnPage(&td, 0, 0, cf)
 
 	pgName.insertTuple(&t1)
@@ -244,7 +244,7 @@ func TestColumnPageDelete(t *testing.T) {
 }
 
 func TestColumnPageInsertTuple(t *testing.T) {
-	td, t1, _, cf, _, _ := makeColumnFileTestVars()
+	td, t1, _, cf, _, _ := makecolumnStoreFileTestVars()
 	page := newColumnPage(&td, 0, 0, cf)
 	free := page.getNumSlots()
 
@@ -290,7 +290,7 @@ func TestColumnPageInsertTuple(t *testing.T) {
 }
 
 func TestColumnPageDeleteTuple(t *testing.T) {
-	td, _, _, cf, _, _ := makeColumnFileTestVars()
+	td, _, _, cf, _, _ := makecolumnStoreFileTestVars()
 	page := newColumnPage(&td, 0, 0, cf)
 	free := page.getNumSlots()
 
@@ -323,7 +323,7 @@ func TestColumnPageDeleteTuple(t *testing.T) {
 }
 
 func TestColumnPageDirty(t *testing.T) {
-	td, _, _, hf, _, _ := makeColumnFileTestVars()
+	td, _, _, hf, _, _ := makecolumnStoreFileTestVars()
 	page := newColumnPage(&td, 0, 0, hf)
 
 	page.setDirty(0, true)
@@ -342,7 +342,7 @@ func TestColumnPageDirty(t *testing.T) {
 
 func TestColumnPageSerialization(t *testing.T) {
 
-	td, _, _, cf, _, _ := makeColumnFileTestVars()
+	td, _, _, cf, _, _ := makecolumnStoreFileTestVars()
 	page := newColumnPage(&td, 0, 0, cf)
 	free := page.getNumSlots()
 
@@ -394,7 +394,7 @@ func TestColumnPageSerialization(t *testing.T) {
 }
 
 func TestIntFilterCol(t *testing.T) {
-	_, t1, t2, cf, _, tid := makeColumnFileTestVars()
+	_, t1, t2, cf, _, tid := makecolumnStoreFileTestVars()
 	cf.insertTuple(&t1, tid)
 	cf.insertTuple(&t2, tid)
 	var f FieldType = FieldType{"age", "", IntType}
@@ -424,7 +424,7 @@ func TestIntFilterCol(t *testing.T) {
 }
 
 func TestStringFilterCol(t *testing.T) {
-	_, t1, t2, cf, _, tid := makeColumnFileTestVars()
+	_, t1, t2, cf, _, tid := makecolumnStoreFileTestVars()
 	cf.insertTuple(&t1, tid)
 	cf.insertTuple(&t2, tid)
 	var f FieldType = FieldType{"name", "", StringType}
@@ -454,14 +454,14 @@ func TestStringFilterCol(t *testing.T) {
 }
 
 func TestJoinCol(t *testing.T) {
-	td, t1, t2, cf, bp, tid := makeColumnFileTestVars()
+	td, t1, t2, cf, bp, tid := makecolumnStoreFileTestVars()
 	cf.insertTuple(&t1, tid)
 	cf.insertTuple(&t2, tid)
 	cf.insertTuple(&t2, tid)
 
 	os.Remove(JoinTestFile)
 	os.Remove("JoinTestFile2.dat")
-	cf2, err := NewColumnFile(map[int]string{0: JoinTestFile, 1: "JoinTestFile2.dat"}, td, bp)
+	cf2, err := NewcolumnStoreFile(map[int]string{0: JoinTestFile, 1: "JoinTestFile2.dat"}, td, bp)
 	if err != nil {
 		t.Errorf("unexpected error initializing column file")
 		return
@@ -514,7 +514,7 @@ func TestJoinCol(t *testing.T) {
 }
 
 func TestProjectCol(t *testing.T) {
-	_, t1, t2, cf, _, tid := makeColumnFileTestVars()
+	_, t1, t2, cf, _, tid := makecolumnStoreFileTestVars()
 	cf.insertTuple(&t1, tid)
 	cf.insertTuple(&t2, tid)
 	var outNames []string = make([]string, 1)
@@ -579,7 +579,7 @@ func TestLoadCSVPerformance50(t *testing.T) {
 		}
 	}()
 
-	colFile, err := NewColumnFile(colFiles, td, columnBufferPool)
+	colFile, err := NewcolumnStoreFile(colFiles, td, columnBufferPool)
 	if err != nil {
 		t.Fatalf("Failed to create column file: %s", err)
 	}
@@ -685,7 +685,7 @@ func TestLoadCSVPerformance500(t *testing.T) {
 		}
 	}()
 
-	colFile, err := NewColumnFile(colFiles, td, columnBufferPool)
+	colFile, err := NewcolumnStoreFile(colFiles, td, columnBufferPool)
 	if err != nil {
 		t.Fatalf("Failed to create column file: %s", err)
 	}
@@ -790,7 +790,7 @@ func TestLoadCSVPerformance2000(t *testing.T) {
 		}
 	}()
 
-	colFile, err := NewColumnFile(colFiles, td, columnBufferPool)
+	colFile, err := NewcolumnStoreFile(colFiles, td, columnBufferPool)
 	if err != nil {
 		t.Fatalf("Failed to create column file: %s", err)
 	}
@@ -896,7 +896,7 @@ func TestLoadCSVPerformance10000(t *testing.T) {
 		}
 	}()
 
-	colFile, err := NewColumnFile(colFiles, td, columnBufferPool)
+	colFile, err := NewcolumnStoreFile(colFiles, td, columnBufferPool)
 	if err != nil {
 		t.Fatalf("Failed to create column file: %s", err)
 	}
@@ -1002,7 +1002,7 @@ func TestLoadCSVPerformance20000(t *testing.T) {
 		}
 	}()
 
-	colFile, err := NewColumnFile(colFiles, td, columnBufferPool)
+	colFile, err := NewcolumnStoreFile(colFiles, td, columnBufferPool)
 	if err != nil {
 		t.Fatalf("Failed to create column file: %s", err)
 	}
